@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
 import './App.css'
+import { auth } from './firebase'
 
 const priorityOptions = ['Low', 'Medium', 'High']
 const categoryOptions = ['All', 'General', 'Study', 'Work', 'Personal']
@@ -83,10 +90,13 @@ function getWeekDates() {
 function App() {
   const recognitionRef = useRef(null)
 
-  const [tasks, setTasks] = useState(() => {
-    const savedTasks = localStorage.getItem('ai-planner-tasks')
-    return savedTasks ? JSON.parse(savedTasks) : []
-  })
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authMode, setAuthMode] = useState('login')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [tasks, setTasks] = useState([])
 
   const [taskText, setTaskText] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -104,8 +114,26 @@ function App() {
   )
 
   useEffect(() => {
-    localStorage.setItem('ai-planner-tasks', JSON.stringify(tasks))
-  }, [tasks])
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+      setAuthLoading(false)
+
+      if (currentUser) {
+        const savedTasks = localStorage.getItem(`ai-planner-tasks-${currentUser.uid}`)
+        setTasks(savedTasks ? JSON.parse(savedTasks) : [])
+      } else {
+        setTasks([])
+      }
+    })
+
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(`ai-planner-tasks-${user.uid}`, JSON.stringify(tasks))
+    }
+  }, [tasks, user])
 
   useEffect(() => {
     return () => {
@@ -114,6 +142,49 @@ function App() {
       }
     }
   }, [])
+
+  function getFriendlyAuthError(error) {
+    if (error.code === 'auth/email-already-in-use') {
+      return 'This email is already registered. Try logging in instead.'
+    }
+
+    if (error.code === 'auth/invalid-credential') {
+      return 'Email or password is incorrect.'
+    }
+
+    if (error.code === 'auth/weak-password') {
+      return 'Password should be at least 6 characters.'
+    }
+
+    if (error.code === 'auth/configuration-not-found') {
+      return 'Firebase Auth is not enabled yet. Turn on Email/Password sign-in in Firebase.'
+    }
+
+    return error.message
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault()
+    setAuthError('')
+
+    try {
+      if (authMode === 'signup') {
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword)
+      } else {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword)
+      }
+
+      setAuthEmail('')
+      setAuthPassword('')
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error))
+    }
+  }
+
+  async function handleLogout() {
+    await signOut(auth)
+    setAssistantOpen(false)
+  }
 
   function createTask(text, date, taskPriority, taskCategory = 'General') {
     const newTask = {
@@ -431,6 +502,76 @@ function App() {
     })
     .sort(sortTasksByPriorityAndDate)
 
+  if (authLoading) {
+    return (
+      <main className="app auth-shell">
+        <section className="auth-card">
+          <p className="eyebrow">AI Task Planner</p>
+          <h1>Loading your workspace...</h1>
+          <p>Checking your sign-in session.</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return (
+      <main className="app auth-shell">
+        <section className="auth-card">
+          <p className="eyebrow">Secure Planner</p>
+          <h1>{authMode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
+          <p>
+            Sign in to keep your tasks private. Each Firebase user gets a separate
+            task workspace on this device.
+          </p>
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            <label>
+              Email
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={authEmail}
+                onChange={(event) => setAuthEmail(event.target.value)}
+                required
+              />
+            </label>
+
+            <label>
+              Password
+              <input
+                type="password"
+                placeholder="At least 6 characters"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                required
+              />
+            </label>
+
+            {authError && <p className="auth-error">{authError}</p>}
+
+            <button type="submit">
+              {authMode === 'signup' ? 'Sign Up' : 'Login'}
+            </button>
+          </form>
+
+          <button
+            className="auth-switch"
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === 'signup' ? 'login' : 'signup')
+              setAuthError('')
+            }}
+          >
+            {authMode === 'signup'
+              ? 'Already have an account? Login'
+              : 'New here? Create an account'}
+          </button>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="app">
       <section className="hero">
@@ -440,6 +581,12 @@ function App() {
           <p className="hero-text">
             Keep tasks, due dates, and priorities in one focused workspace.
           </p>
+          <div className="user-bar">
+            <span>Signed in as {user.email}</span>
+            <button type="button" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
         </div>
 
         <div className="stats">
