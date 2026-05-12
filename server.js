@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import process from 'node:process'
 import express from 'express'
 import OpenAI from 'openai'
 
@@ -8,7 +9,7 @@ const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini'
 
 app.use(express.json())
 
-app.get('/api/health', (request, response) => {
+app.get('/api/health', (_request, response) => {
   response.json({ ok: true })
 })
 

@@ -69,7 +69,7 @@ function formatFriendlyDate(dateText) {
 }
 
 function getWeekDates() {
-  return Array.from({ length: 7 }, (item, index) => {
+  return Array.from({ length: 7 }, (_item, index) => {
     const date = new Date()
     date.setDate(date.getDate() + index)
 
@@ -320,7 +320,7 @@ function App() {
 
   function toggleVoiceInput() {
     const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition
+      globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition
 
     if (!SpeechRecognition) {
       setVoiceMessage('Speech recognition is not supported in this browser.')
