@@ -13,6 +13,14 @@ export default defineConfig([
     },
   },
   {
+    files: ['**/*.test.js'],
+    languageOptions: {
+      globals: {
+        Deno: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
