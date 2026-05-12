@@ -12,6 +12,13 @@ function getTodayDate() {
   return formatDateForInput(new Date())
 }
 
+function getTomorrowDate() {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  return formatDateForInput(tomorrow)
+}
+
 function formatDateForInput(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -36,6 +43,10 @@ function sortTasksByPriorityAndDate(firstTask, secondTask) {
   return firstTask.dueDate.localeCompare(secondTask.dueDate)
 }
 
+function capitalizePriority(priorityText) {
+  return priorityText.charAt(0).toUpperCase() + priorityText.slice(1)
+}
+
 function App() {
   const [tasks, setTasks] = useState(() => {
     const savedTasks = localStorage.getItem('ai-planner-tasks')
@@ -55,6 +66,19 @@ function App() {
     localStorage.setItem('ai-planner-tasks', JSON.stringify(tasks))
   }, [tasks])
 
+  function createTask(text, date, taskPriority) {
+    const newTask = {
+      id: Date.now(),
+      text,
+      dueDate: date,
+      priority: taskPriority,
+      completed: false,
+    }
+
+    setTasks((currentTasks) => [newTask, ...currentTasks])
+    return newTask
+  }
+
   function addTask(event) {
     event.preventDefault()
 
@@ -62,15 +86,7 @@ function App() {
       return
     }
 
-    const newTask = {
-      id: Date.now(),
-      text: taskText.trim(),
-      dueDate,
-      priority,
-      completed: false,
-    }
-
-    setTasks([newTask, ...tasks])
+    createTask(taskText.trim(), dueDate, priority)
     setTaskText('')
     setDueDate('')
     setPriority('Medium')
@@ -139,6 +155,41 @@ function App() {
     return `Total tasks: ${totalTasks}\nCompleted tasks: ${completedTasks}\nPending tasks: ${pendingTasks}`
   }
 
+  function addTaskFromAssistant(command) {
+    const words = command.split(' ')
+    const taskWords = words.slice(1)
+    let taskPriority = 'Medium'
+    let taskDate = ''
+
+    const lastWord = taskWords[taskWords.length - 1]
+
+    if (['low', 'medium', 'high'].includes(lastWord)) {
+      taskPriority = capitalizePriority(lastWord)
+      taskWords.pop()
+    }
+
+    const dateWord = taskWords[taskWords.length - 1]
+
+    if (dateWord === 'today') {
+      taskDate = getTodayDate()
+      taskWords.pop()
+    } else if (dateWord === 'tomorrow') {
+      taskDate = getTomorrowDate()
+      taskWords.pop()
+    }
+
+    const newTaskText = taskWords.join(' ').trim()
+
+    if (newTaskText === '') {
+      return 'Please tell me what task to add. Example: add study DSA tomorrow high'
+    }
+
+    const newTask = createTask(newTaskText, taskDate, taskPriority)
+    const dateText = newTask.dueDate ? ` for ${newTask.dueDate}` : ''
+
+    return `Added "${newTask.text}"${dateText} with ${newTask.priority} priority.`
+  }
+
   function handleAssistantSubmit(event) {
     event.preventDefault()
 
@@ -152,9 +203,11 @@ function App() {
       setAssistantReply('You are closer than you think. Pick one task and move it forward.')
     } else if (command === 'summary') {
       setAssistantReply(showSummary())
+    } else if (command.startsWith('add ')) {
+      setAssistantReply(addTaskFromAssistant(command))
     } else {
       setAssistantReply(
-        'I know these commands: "plan my day", "show urgent", "motivate me", and "summary".',
+        'I know these commands: "plan my day", "show urgent", "motivate me", "summary", and "add study DSA tomorrow high".',
       )
     }
 
@@ -290,7 +343,7 @@ function App() {
                 Assistant
                 <input
                   type="text"
-                  placeholder="Type summary or plan my day"
+                  placeholder="add study DSA tomorrow high"
                   value={assistantInput}
                   onChange={(event) => setAssistantInput(event.target.value)}
                 />
