@@ -48,7 +48,7 @@ function App() {
   const [assistantInput, setAssistantInput] = useState('')
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [assistantReply, setAssistantReply] = useState(
-    'Try typing "plan my day", "show urgent", or "motivate me".',
+    'Try typing "plan my day", "show urgent", "motivate me", or "summary".',
   )
 
   useEffect(() => {
@@ -131,6 +131,14 @@ function App() {
     return urgentTasks.map(formatTask).join('\n')
   }
 
+  function showSummary() {
+    const totalTasks = tasks.length
+    const completedTasks = tasks.filter((task) => task.completed).length
+    const pendingTasks = totalTasks - completedTasks
+
+    return `Total tasks: ${totalTasks}\nCompleted tasks: ${completedTasks}\nPending tasks: ${pendingTasks}`
+  }
+
   function handleAssistantSubmit(event) {
     event.preventDefault()
 
@@ -142,9 +150,11 @@ function App() {
       setAssistantReply(showUrgentTasks())
     } else if (command === 'motivate me') {
       setAssistantReply('You are closer than you think. Pick one task and move it forward.')
+    } else if (command === 'summary') {
+      setAssistantReply(showSummary())
     } else {
       setAssistantReply(
-        'I know these commands: "plan my day", "show urgent", and "motivate me".',
+        'I know these commands: "plan my day", "show urgent", "motivate me", and "summary".',
       )
     }
 
@@ -265,7 +275,7 @@ function App() {
               </div>
               <div>
                 <p className="eyebrow">Rule-Based Bot</p>
-                <h2>Planner Copilot</h2>
+                <h2>Assistant</h2>
               </div>
             </div>
 
@@ -277,10 +287,10 @@ function App() {
 
             <form className="assistant-form" onSubmit={handleAssistantSubmit}>
               <label>
-                Ask assistant
+                Assistant
                 <input
                   type="text"
-                  placeholder="plan my day"
+                  placeholder="Type summary or plan my day"
                   value={assistantInput}
                   onChange={(event) => setAssistantInput(event.target.value)}
                 />
